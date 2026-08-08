@@ -1,0 +1,15 @@
+fastapi
+uvicorn[standard]
+pydantic
+python-multipart
+psycopg2-binary
+redis
+tenacity
+google-generativeai
+sentence-transformers
+numpy
+slowapi
+python-json-logger
+python-dotenv
+httpx
+aiofiles
