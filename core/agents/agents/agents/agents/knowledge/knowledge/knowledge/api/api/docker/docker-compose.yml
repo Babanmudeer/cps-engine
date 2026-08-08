@@ -1,0 +1,124 @@
+services:
+  postgres:
+    image: apache/age:latest
+    container_name: cps_postgres
+
+    environment:
+      POSTGRES_USER: ${DB_USER:-cps_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-cps_pass}
+      POSTGRES_DB: ${DB_NAME:-cps_engine}
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+    restart: unless-stopped
+
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${DB_USER:-cps_user} -d ${DB_NAME:-cps_engine}"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+    networks:
+      - cps_network
+
+
+  redis:
+    image: redis:7-alpine
+    container_name: cps_redis
+
+    command:
+      [
+        "redis-server",
+        "--appendonly",
+        "yes"
+      ]
+
+    volumes:
+      - redis_data:/data
+
+    restart: unless-stopped
+
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "redis-cli",
+          "ping"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+    networks:
+      - cps_network
+
+
+  backend:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.backend
+
+    container_name: cps_backend
+
+    environment:
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+
+      DB_NAME: ${DB_NAME:-cps_engine}
+      DB_USER: ${DB_USER:-cps_user}
+      DB_PASSWORD: ${DB_PASSWORD:-cps_pass}
+      DB_HOST: postgres
+      DB_PORT: 5432
+
+      REDIS_URL: redis://redis:6379
+
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-1.5-pro}
+
+      GRAPH_NAME: ${GRAPH_NAME:-hausahistory}
+
+      API_KEY_DEV: ${API_KEY_DEV:-dev_key_123}
+      API_KEY_PROD: ${API_KEY_PROD:-prod_key_456}
+      API_KEY_ENTERPRISE: ${API_KEY_ENTERPRISE:-enterprise_key_789}
+
+      ENABLE_CACHE: ${ENABLE_CACHE:-true}
+      CACHE_TTL: ${CACHE_TTL:-3600}
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+      redis:
+        condition: service_healthy
+
+    expose:
+      - "8000"
+
+    restart: unless-stopped
+
+    command:
+      [
+        "uvicorn",
+        "api.routes:app",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8000"
+      ]
+
+    networks:
+      - cps_network
+
+
+networks:
+  cps_network:
+    driver: bridge
+
+
+volumes:
+  postgres_data:
+  redis_data:
