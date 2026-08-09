@@ -48,7 +48,12 @@ app.add_exception_handler(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+    os.getenv(
+        "FRONTEND_URL",
+        "http://localhost:3000"
+    )
+],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -63,24 +68,17 @@ api_key_header = APIKeyHeader(
 )
 
 
+import os
+
 VALID_API_KEYS = {
-    os.getenv(
-        "API_KEY_DEV",
-        "dev_key_123",
-    ): {
-        "plan": "free",
+    os.getenv("API_KEY_DEV", "dev_key_123"): {
+        "plan": "free"
     },
-    os.getenv(
-        "API_KEY_PROD",
-        "prod_key_456",
-    ): {
-        "plan": "pro",
+    os.getenv("API_KEY_PROD", "prod_key_456"): {
+        "plan": "pro"
     },
-    os.getenv(
-        "API_KEY_ENTERPRISE",
-        "enterprise_key_789",
-    ): {
-        "plan": "enterprise",
+    os.getenv("API_KEY_ENTERPRISE", "enterprise_key_789"): {
+        "plan": "enterprise"
     },
 }
 
