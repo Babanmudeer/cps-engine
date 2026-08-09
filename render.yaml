@@ -1,0 +1,61 @@
+services:
+  - type: web
+    name: cps-engine-api
+    runtime: docker
+    dockerfilePath: ./docker/Dockerfile.backend
+    dockerContext: .
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+
+      - key: DB_NAME
+        sync: false
+
+      - key: DB_USER
+        sync: false
+
+      - key: DB_PASSWORD
+        sync: false
+
+      - key: DB_HOST
+        sync: false
+
+      - key: DB_PORT
+        value: "5432"
+
+      - key: REDIS_URL
+        sync: false
+
+      - key: GEMINI_API_KEY
+        sync: false
+
+      - key: GEMINI_MODEL
+        value: gemini-1.5-pro
+
+      - key: TEMPERATURE
+        value: "0.3"
+
+      - key: MAX_TOKENS
+        value: "2048"
+
+      - key: GRAPH_NAME
+        value: hausahistory
+
+      - key: ENABLE_CACHE
+        value: "true"
+
+      - key: CACHE_TTL
+        value: "3600"
+
+      - key: API_KEY_DEV
+        sync: false
+
+      - key: API_KEY_PROD
+        sync: false
+
+      - key: API_KEY_ENTERPRISE
+        sync: false
+
+      - key: FRONTEND_URL
+        sync: false
