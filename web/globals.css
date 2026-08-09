@@ -1,0 +1,50 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  background: #f5f7fb;
+  color: #111827;
+  font-family:
+    Arial,
+    Helvetica,
+    sans-serif;
+}
+
+button,
+textarea,
+input {
+  font-family: inherit;
+}
+
+button {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+button:hover:not(:disabled) {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+button:disabled {
+  opacity: 0.6;
+}
+
+textarea:focus,
+input:focus {
+  outline: 2px solid #111827;
+  outline-offset: 1px;
+}
+
+@media (max-width: 600px) {
+  body {
+    font-size: 15px;
+  }
+}
