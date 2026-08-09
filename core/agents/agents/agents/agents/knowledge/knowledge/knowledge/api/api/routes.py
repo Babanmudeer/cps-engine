@@ -72,13 +72,16 @@ import os
 
 VALID_API_KEYS = {
     os.getenv("API_KEY_DEV", "dev_key_123"): {
-        "plan": "free"
+        "plan": "free",
+        "rate_limit": "5/minute",
     },
     os.getenv("API_KEY_PROD", "prod_key_456"): {
-        "plan": "pro"
+        "plan": "pro",
+        "rate_limit": "100/minute",
     },
     os.getenv("API_KEY_ENTERPRISE", "enterprise_key_789"): {
-        "plan": "enterprise"
+        "plan": "enterprise",
+        "rate_limit": "500/minute",
     },
 }
 
