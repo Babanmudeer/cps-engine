@@ -7,8 +7,8 @@ ENV PYTHONUNBUFFERED=1
 
 RUN apt-get update && apt-get install -y \
     gcc \
+    libpq-dev \
     postgresql-client \
-    curl \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
@@ -18,7 +18,7 @@ RUN pip install --no-cache-dir --upgrade pip \
 
 COPY . .
 
-RUN mkdir -p /app/logs
+RUN mkdir -p logs
 
 EXPOSE 8000
 
