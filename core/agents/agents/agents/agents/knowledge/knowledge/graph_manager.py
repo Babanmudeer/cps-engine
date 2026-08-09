@@ -1,3 +1,4 @@
+from ..core.config import config
 import json
 import logging
 import os
@@ -18,26 +19,11 @@ class GraphManager:
         self.graph_name = graph_name
 
         self.db_config = {
-            "dbname": os.getenv(
-                "DB_NAME",
-                "cps_engine",
-            ),
-            "user": os.getenv(
-                "DB_USER",
-                "cps_user",
-            ),
-            "password": os.getenv(
-                "DB_PASSWORD",
-                "cps_pass",
-            ),
-            "host": os.getenv(
-                "DB_HOST",
-                "localhost",
-            ),
-            "port": os.getenv(
-                "DB_PORT",
-                "5432",
-            ),
+    "dbname": config.database.dbname,
+    "user": config.database.user,
+    "password": config.database.password,
+    "host": config.database.host,
+    "port": config.database.port,
         }
 
         self._initialize_age()
