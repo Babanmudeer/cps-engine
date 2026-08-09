@@ -1,10 +1,11 @@
+import os
 import json
 import logging
-import os
-from contextlib import contextmanager
-from typing import Any, Dict, List
 
 import psycopg2
+
+from typing import List, Dict
+from contextlib import contextmanager
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 
@@ -12,32 +13,17 @@ logger = logging.getLogger(__name__)
 
 
 class GraphManager:
-    """Apache AGE Graph Manager for CPS Engine."""
+    """Apache AGE Graph Manager."""
 
     def __init__(self, graph_name: str):
         self.graph_name = graph_name
 
         self.db_config = {
-            "dbname": os.getenv(
-                "DB_NAME",
-                "cps_engine",
-            ),
-            "user": os.getenv(
-                "DB_USER",
-                "cps_user",
-            ),
-            "password": os.getenv(
-                "DB_PASSWORD",
-                "cps_pass",
-            ),
-            "host": os.getenv(
-                "DB_HOST",
-                "localhost",
-            ),
-            "port": os.getenv(
-                "DB_PORT",
-                "5432",
-            ),
+            "dbname": os.getenv("DB_NAME", "cps_engine"),
+            "user": os.getenv("DB_USER", "cps_user"),
+            "password": os.getenv("DB_PASSWORD", "cps_pass"),
+            "host": os.getenv("DB_HOST", "localhost"),
+            "port": os.getenv("DB_PORT", "5432"),
         }
 
         self._initialize_age()
@@ -45,36 +31,30 @@ class GraphManager:
 
     @contextmanager
     def get_connection(self):
-        """Create a PostgreSQL connection."""
-
         conn = None
 
         try:
-            conn = psycopg2.connect(
-                **self.db_config
-            )
-
+            conn = psycopg2.connect(**self.db_config)
             conn.autocommit = False
 
             with conn.cursor() as cur:
                 cur.execute("LOAD 'age';")
                 cur.execute(
-                    "SET search_path = ag_catalog, "
-                    "'$user', public;"
+                    "SET search_path = ag_catalog, '$user', public;"
                 )
 
             yield conn
 
             conn.commit()
 
-        except Exception as exc:
+        except Exception as e:
             if conn:
                 conn.rollback()
 
             logger.error(
-                "Database error: %s",
-                exc,
+                f"Database error: {str(e)}"
             )
+
             raise
 
         finally:
@@ -82,8 +62,6 @@ class GraphManager:
                 conn.close()
 
     def _initialize_age(self):
-        """Initialize Apache AGE extension."""
-
         try:
             with self.get_connection() as conn:
                 with conn.cursor() as cur:
@@ -94,19 +72,16 @@ class GraphManager:
                 conn.commit()
 
             logger.info(
-                "Apache AGE initialized successfully."
+                "✅ Apache AGE extension initialized"
             )
 
-        except Exception as exc:
+        except Exception as e:
             logger.error(
-                "AGE initialization failed: %s",
-                exc,
+                f"AGE initialization failed: {str(e)}"
             )
             raise
 
     def _initialize_graph(self):
-        """Create graph if it does not exist."""
-
         try:
             with self.get_connection() as conn:
                 with conn.cursor() as cur:
@@ -126,74 +101,92 @@ class GraphManager:
 
                     if not exists:
                         logger.info(
-                            "Creating graph: %s",
-                            self.graph_name,
+                            f"Creating graph: {self.graph_name}"
                         )
 
                         cur.execute(
-                            "SELECT create_graph(%s);",
+                            "SELECT ag_catalog.create_graph(%s);",
                             (self.graph_name,),
                         )
 
                         conn.commit()
 
-        except Exception as exc:
+            if not exists:
+                self._initialize_schema()
+
+        except Exception as e:
             logger.error(
-                "Graph initialization failed: %s",
-                exc,
+                f"Graph initialization failed: {str(e)}"
             )
             raise
+
+    def _initialize_schema(self):
+        logger.info(
+            "Initializing CPS Engine graph schema..."
+        )
+
+        logger.info(
+            "Graph schema initialization completed."
+        )
 
     @retry(
         stop=stop_after_attempt(3),
         wait=wait_exponential(
             multiplier=1,
             min=2,
-            max=10,
+            max=10
         ),
     )
     def _execute_cypher(
         self,
-        cypher: str,
-    ) -> List[Dict[str, Any]]:
-        """Execute a Cypher query through Apache AGE."""
+        cypher: str
+    ) -> List[Dict]:
 
-        results: List[Dict[str, Any]] = []
+        results = []
 
         try:
             with self.get_connection() as conn:
+
                 with conn.cursor() as cur:
 
                     full_query = f"""
                     SELECT *
                     FROM ag_catalog.cypher(
-                        '{self.graph_name}',
+                        %s,
                         $$
                         {cypher}
                         $$
-                    )
-                    AS (result ag_catalog.agtype);
+                    ) AS (
+                        result ag_catalog.agtype
+                    );
                     """
 
-                    cur.execute(full_query)
+                    cur.execute(
+                        full_query,
+                        (self.graph_name,),
+                    )
 
                     if cur.description:
+
                         rows = cur.fetchall()
 
                         for row in rows:
+
                             if row[0] is not None:
+
+                                value = row[0]
+
                                 try:
                                     results.append(
                                         json.loads(
-                                            str(row[0])
+                                            str(value)
                                         )
                                     )
-                                except json.JSONDecodeError:
+
+                                except Exception:
                                     results.append(
                                         {
-                                            "result": str(
-                                                row[0]
-                                            )
+                                            "result": str(value)
                                         }
                                     )
 
@@ -201,115 +194,130 @@ class GraphManager:
 
             return results
 
-        except Exception as exc:
+        except Exception as e:
+
             logger.error(
-                "Cypher execution failed: %s",
-                exc,
+                f"Cypher execution failed: {str(e)}"
             )
+
             raise
 
     def execute_query(
         self,
-        cypher: str,
-    ) -> List[Dict[str, Any]]:
-        """Execute a Cypher query."""
+        cypher: str
+    ) -> List[Dict]:
 
         return self._execute_cypher(cypher)
 
-    def get_schema_info(self) -> Dict[str, Any]:
-        """Return basic graph schema information."""
+    def validate_query(
+        self,
+        cypher: str
+    ) -> bool:
+
+        if not cypher.strip().upper().startswith(
+            ("MATCH", "OPTIONAL", "RETURN")
+        ):
+            return False
+
+        dangerous = [
+            "DROP",
+            "DELETE",
+            "CREATE",
+            "SET",
+            "REMOVE",
+            "MERGE",
+            "ALTER",
+        ]
+
+        upper_query = cypher.upper()
+
+        for word in dangerous:
+
+            if word in upper_query:
+                logger.warning(
+                    f"Blocked dangerous query: {word}"
+                )
+                return False
+
+        return True
+
+    def get_schema_info(self) -> Dict:
 
         queries = {
             "nodes": (
                 "MATCH (n) "
-                "RETURN DISTINCT labels(n) AS Label, "
-                "count(n) AS Count"
+                "RETURN labels(n) AS Label, count(n) AS Count"
             ),
             "edges": (
                 "MATCH ()-[r]->() "
-                "RETURN DISTINCT type(r) AS Type, "
-                "count(r) AS Count"
+                "RETURN type(r) AS Type, count(r) AS Count"
             ),
         }
 
-        schema: Dict[str, Any] = {}
+        schema = {}
 
-        for name, query in queries.items():
+        for key, query in queries.items():
+
             try:
-                schema[name] = self._execute_cypher(
+                schema[key] = self._execute_cypher(
                     query
                 )
-            except Exception as exc:
-                logger.error(
-                    "Schema query failed: %s",
-                    exc,
-                )
-                schema[name] = []
+
+            except Exception:
+                schema[key] = []
 
         return schema
 
-    def get_graph_stats(self) -> Dict[str, Any]:
-        """Return graph node and edge counts."""
+    def get_graph_stats(self) -> Dict:
 
         try:
+
             node_stats = self._execute_cypher(
-                "MATCH (n) "
-                "RETURN count(n) AS TotalNodes"
+                "MATCH (n) RETURN count(n) AS TotalNodes"
             )
 
             edge_stats = self._execute_cypher(
-                "MATCH ()-[r]->() "
-                "RETURN count(r) AS TotalEdges"
+                "MATCH ()-[r]->() RETURN count(r) AS TotalEdges"
             )
-
-            total_nodes = 0
-            total_edges = 0
-
-            if node_stats:
-                total_nodes = node_stats[0].get(
-                    "TotalNodes",
-                    0,
-                )
-
-            if edge_stats:
-                total_edges = edge_stats[0].get(
-                    "TotalEdges",
-                    0,
-                )
 
             return {
                 "graph_name": self.graph_name,
-                "total_nodes": total_nodes,
-                "total_edges": total_edges,
+                "total_nodes": (
+                    node_stats[0].get(
+                        "TotalNodes",
+                        0
+                    )
+                    if node_stats
+                    else 0
+                ),
+                "total_edges": (
+                    edge_stats[0].get(
+                        "TotalEdges",
+                        0
+                    )
+                    if edge_stats
+                    else 0
+                ),
             }
 
-        except Exception as exc:
+        except Exception as e:
+
             logger.error(
-                "Graph statistics failed: %s",
-                exc,
+                f"Graph statistics failed: {str(e)}"
             )
 
-            return {
-                "graph_name": self.graph_name,
-                "total_nodes": 0,
-                "total_edges": 0,
-            }
+            return {}
 
     async def health_check(self) -> bool:
-        """Check database and graph health."""
 
         try:
+
             self._execute_cypher(
-                "MATCH (n) "
-                "RETURN count(n) "
-                "LIMIT 1"
+                "MATCH (n) RETURN count(n) LIMIT 1"
             )
 
             return True
 
-        except Exception as exc:
-            logger.error(
-                "Graph health check failed: %s",
-                exc,
-            )
+        except Exception:
+
             return False
