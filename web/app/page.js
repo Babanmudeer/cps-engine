@@ -23,7 +23,7 @@ export default function Home() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-API-Key': 'dev_key_123',
+          'X-API-Key': process.env.NEXT_PUBLIC_CPS_API_KEY || '',
         },
         body: JSON.stringify({
           query: query.trim(),
