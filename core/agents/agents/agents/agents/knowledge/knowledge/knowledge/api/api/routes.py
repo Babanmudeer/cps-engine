@@ -83,22 +83,23 @@ VALID_API_KEYS = {
 }
 
 
-async def validate_api_key(
-    api_key: str = Depends(api_key_header),
-):
-    """Validate the X-API-Key header."""
-
+async def validate_api_key(api_key: str = Depends(api_key_header)):
     if not api_key:
         raise HTTPException(
             status_code=401,
-            detail={
-                "error": "Missing API key",
-                "message": (
-                    "Provide your API key using "
-                    "the X-API-Key header."
-                ),
-            },
+            detail="API key required"
         )
+
+    if api_key not in VALID_API_KEYS:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid API key"
+        )
+
+    return {
+        "api_key": api_key,
+        **VALID_API_KEYS[api_key]
+}
 
     if api_key not in VALID_API_KEYS:
         raise HTTPException(
